@@ -1,0 +1,9 @@
+# Environment configuration
+**/.env
+
+# VS Code Configuration
+**/.vscode/
+
+**/.venv/
+
+**/__pycache__/
