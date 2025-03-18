@@ -16,28 +16,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.ALLOW_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# Simple API key check dependency if enabled
-def check_api_key(x_api_key: str = Header(None)):
-    """Check API key if security is enabled"""
-    if settings.API_KEY and x_api_key != settings.API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API key")
-    return True
-
-
-# Include routers with API key check if enabled
-dependencies = [Depends(check_api_key)] if settings.API_KEY else []
-
-app.include_router(connector_routes.router, dependencies=dependencies)
+# Include connector routes
+app.include_router(connector_routes.router)
 
 # Initialize database on startup
 @app.on_event("startup")

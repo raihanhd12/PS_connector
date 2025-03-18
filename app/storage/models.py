@@ -1,7 +1,7 @@
 """
 SQLAlchemy models for data storage
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
 from sqlalchemy.sql import func
 
 from app.storage.database import Base

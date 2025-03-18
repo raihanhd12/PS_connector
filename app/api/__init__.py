@@ -1,5 +1,5 @@
-# app/api/__init__.py
 """
-API module for the Database Connector
+API module for the Database Connector Service
 """
-from app.api import connections, database, sheets
+# Import connector_routes only
+from app.api import connector_routes

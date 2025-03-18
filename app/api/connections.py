@@ -1,18 +1,16 @@
 """
-API routes for connection operations
+API routes for connection operations (Legacy API, use connector_routes instead)
 """
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.storage.models import ConnectorSpreadsheet, ConnectorDatabase
 from app.storage.database import get_db
-from app.storage.repository import SpreadsheetRepository, DatabaseRepository
-from app.services.google_sheets import GoogleSheetsService
-from app.services.database import DatabaseService
+from app.storage.repository import ConnectionRepository
+from app.connectors.registry import ConnectorRegistry
 
-router = APIRouter(prefix="/api/connections", tags=["Connections"])
+router = APIRouter(prefix="/api/connections", tags=["Legacy Connections"])
 
 # Pydantic models for request/response
 class SpreadsheetCreate(BaseModel):
@@ -36,7 +34,7 @@ class SpreadsheetResponse(BaseModel):
     updated_at: Any
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class DatabaseCreate(BaseModel):
     name: str
@@ -59,7 +57,7 @@ class DatabaseResponse(BaseModel):
     updated_at: Any
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ConnectionTestRequest(BaseModel):
     """Request model for testing a connection"""
@@ -80,27 +78,72 @@ def create_spreadsheet(
     db: Session = Depends(get_db)
 ):
     try:
-        repo = SpreadsheetRepository(db)
+        repo = ConnectionRepository(db)
+        # Create a connection with connector_type 'google_sheets'
+        connection_params = spreadsheet.credentials.copy()
+        if spreadsheet.spreadsheet_id:
+            connection_params["spreadsheet_id"] = spreadsheet.spreadsheet_id
+            
         connection = repo.create(
             name=spreadsheet.name,
-            credentials=spreadsheet.credentials,
-            spreadsheet_id=spreadsheet.spreadsheet_id,
+            connector_type="google_sheets",
+            connection_params=connection_params,
             description=spreadsheet.description
         )
-        return connection
+        
+        # Convert to SpreadsheetResponse
+        return SpreadsheetResponse(
+            id=connection.id,
+            name=connection.name,
+            spreadsheet_id=connection_params.get("spreadsheet_id"),
+            description=connection.description,
+            created_at=connection.created_at,
+            updated_at=connection.updated_at
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/spreadsheets", response_model=List[SpreadsheetResponse])
 def list_spreadsheets(db: Session = Depends(get_db)):
-    repo = SpreadsheetRepository(db)
-    return repo.list_all()
+    repo = ConnectionRepository(db)
+    connections = repo.list_all(connector_type="google_sheets")
+    
+    # Convert to SpreadsheetResponse
+    result = []
+    for conn in connections:
+        conn_params = repo.get_connection_params(conn.id)
+        result.append(SpreadsheetResponse(
+            id=conn.id,
+            name=conn.name,
+            spreadsheet_id=conn_params.get("spreadsheet_id"),
+            description=conn.description,
+            created_at=conn.created_at,
+            updated_at=conn.updated_at
+        ))
+    
+    return result
 
 @router.get("/spreadsheets/{connection_id}", response_model=SpreadsheetResponse)
 def get_spreadsheet(connection_id: int, db: Session = Depends(get_db)):
     try:
-        repo = SpreadsheetRepository(db)
-        return repo.get_by_id(connection_id)
+        repo = ConnectionRepository(db)
+        conn = repo.get_by_id(connection_id)
+        
+        # Verify it's a Google Sheets connection
+        if conn.connector_type != "google_sheets":
+            raise ValueError(f"Connection {connection_id} is not a Google Sheets connection")
+        
+        # Get connection params
+        conn_params = repo.get_connection_params(conn.id)
+        
+        return SpreadsheetResponse(
+            id=conn.id,
+            name=conn.name,
+            spreadsheet_id=conn_params.get("spreadsheet_id"),
+            description=conn.description,
+            created_at=conn.created_at,
+            updated_at=conn.updated_at
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -111,13 +154,38 @@ def update_spreadsheet(
     db: Session = Depends(get_db)
 ):
     try:
-        repo = SpreadsheetRepository(db)
-        return repo.update(
+        repo = ConnectionRepository(db)
+        conn = repo.get_by_id(connection_id)
+        
+        # Verify it's a Google Sheets connection
+        if conn.connector_type != "google_sheets":
+            raise ValueError(f"Connection {connection_id} is not a Google Sheets connection")
+        
+        # Get existing connection params
+        conn_params = repo.get_connection_params(conn.id)
+        
+        # Update connection params
+        if spreadsheet.credentials is not None:
+            conn_params.update(spreadsheet.credentials)
+        
+        if spreadsheet.spreadsheet_id is not None:
+            conn_params["spreadsheet_id"] = spreadsheet.spreadsheet_id
+        
+        # Update connection
+        conn = repo.update(
             connection_id=connection_id,
             name=spreadsheet.name,
-            credentials=spreadsheet.credentials,
-            spreadsheet_id=spreadsheet.spreadsheet_id,
+            connection_params=conn_params,
             description=spreadsheet.description
+        )
+        
+        return SpreadsheetResponse(
+            id=conn.id,
+            name=conn.name,
+            spreadsheet_id=conn_params.get("spreadsheet_id"),
+            description=conn.description,
+            created_at=conn.created_at,
+            updated_at=conn.updated_at
         )
     except ValueError as e:
         raise HTTPException(status_code=404 if "not found" in str(e) else 400, detail=str(e))
@@ -125,7 +193,13 @@ def update_spreadsheet(
 @router.delete("/spreadsheets/{connection_id}", status_code=204)
 def delete_spreadsheet(connection_id: int, db: Session = Depends(get_db)):
     try:
-        repo = SpreadsheetRepository(db)
+        repo = ConnectionRepository(db)
+        conn = repo.get_by_id(connection_id)
+        
+        # Verify it's a Google Sheets connection
+        if conn.connector_type != "google_sheets":
+            raise ValueError(f"Connection {connection_id} is not a Google Sheets connection")
+        
         repo.delete(connection_id)
         return None
     except ValueError as e:
@@ -138,27 +212,72 @@ def create_database(
     db: Session = Depends(get_db)
 ):
     try:
-        repo = DatabaseRepository(db)
+        repo = ConnectionRepository(db)
+        # Create a connection with the specified db_type
+        connection_params = {
+            "connection_string": database.connection_string
+        }
+            
         connection = repo.create(
             name=database.name,
-            connection_string=database.connection_string,
-            db_type=database.db_type,
+            connector_type=database.db_type,
+            connection_params=connection_params,
             description=database.description
         )
-        return connection
+        
+        # Convert to DatabaseResponse
+        return DatabaseResponse(
+            id=connection.id,
+            name=connection.name,
+            db_type=connection.connector_type,
+            description=connection.description,
+            created_at=connection.created_at,
+            updated_at=connection.updated_at
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/databases", response_model=List[DatabaseResponse])
 def list_databases(db: Session = Depends(get_db)):
-    repo = DatabaseRepository(db)
-    return repo.list_all()
+    repo = ConnectionRepository(db)
+    # Get all connections except Google Sheets
+    all_connections = repo.list_all()
+    
+    # Filter to only db connections (everything except google_sheets)
+    connections = [conn for conn in all_connections if conn.connector_type != "google_sheets"]
+    
+    # Convert to DatabaseResponse
+    result = []
+    for conn in connections:
+        result.append(DatabaseResponse(
+            id=conn.id,
+            name=conn.name,
+            db_type=conn.connector_type,
+            description=conn.description,
+            created_at=conn.created_at,
+            updated_at=conn.updated_at
+        ))
+    
+    return result
 
 @router.get("/databases/{connection_id}", response_model=DatabaseResponse)
 def get_database(connection_id: int, db: Session = Depends(get_db)):
     try:
-        repo = DatabaseRepository(db)
-        return repo.get_by_id(connection_id)
+        repo = ConnectionRepository(db)
+        conn = repo.get_by_id(connection_id)
+        
+        # Verify it's not a Google Sheets connection
+        if conn.connector_type == "google_sheets":
+            raise ValueError(f"Connection {connection_id} is not a database connection")
+        
+        return DatabaseResponse(
+            id=conn.id,
+            name=conn.name,
+            db_type=conn.connector_type,
+            description=conn.description,
+            created_at=conn.created_at,
+            updated_at=conn.updated_at
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -169,13 +288,35 @@ def update_database(
     db: Session = Depends(get_db)
 ):
     try:
-        repo = DatabaseRepository(db)
-        return repo.update(
+        repo = ConnectionRepository(db)
+        conn = repo.get_by_id(connection_id)
+        
+        # Verify it's not a Google Sheets connection
+        if conn.connector_type == "google_sheets":
+            raise ValueError(f"Connection {connection_id} is not a database connection")
+        
+        # Get existing connection params
+        conn_params = repo.get_connection_params(conn.id)
+        
+        # Update connection params
+        if database.connection_string is not None:
+            conn_params["connection_string"] = database.connection_string
+        
+        # Update connection (we don't allow changing the db_type)
+        conn = repo.update(
             connection_id=connection_id,
             name=database.name,
-            connection_string=database.connection_string,
-            db_type=database.db_type,
+            connection_params=conn_params,
             description=database.description
+        )
+        
+        return DatabaseResponse(
+            id=conn.id,
+            name=conn.name,
+            db_type=conn.connector_type,
+            description=conn.description,
+            created_at=conn.created_at,
+            updated_at=conn.updated_at
         )
     except ValueError as e:
         raise HTTPException(status_code=404 if "not found" in str(e) else 400, detail=str(e))
@@ -183,7 +324,13 @@ def update_database(
 @router.delete("/databases/{connection_id}", status_code=204)
 def delete_database(connection_id: int, db: Session = Depends(get_db)):
     try:
-        repo = DatabaseRepository(db)
+        repo = ConnectionRepository(db)
+        conn = repo.get_by_id(connection_id)
+        
+        # Verify it's not a Google Sheets connection
+        if conn.connector_type == "google_sheets":
+            raise ValueError(f"Connection {connection_id} is not a database connection")
+        
         repo.delete(connection_id)
         return None
     except ValueError as e:
@@ -197,14 +344,29 @@ def test_database_connection(
 ):
     """Test a database connection"""
     try:
-        connection_string = None
+        connection_params = {}
         
-        # Get connection string from repository or use provided one
+        # Get connection params from repository or use provided ones
         if request.connection_id is not None:
-            repo = DatabaseRepository(db)
-            connection_string = repo.get_connection_string(request.connection_id)
+            repo = ConnectionRepository(db)
+            conn = repo.get_by_id(request.connection_id)
+            
+            # Verify it's not a Google Sheets connection
+            if conn.connector_type == "google_sheets":
+                raise ValueError(f"Connection {request.connection_id} is not a database connection")
+            
+            connection_params = repo.get_connection_params(request.connection_id)
+            connector_type = conn.connector_type
         elif request.connection_string is not None:
-            connection_string = request.connection_string
+            # Try to determine the connector type from the connection string
+            if "postgresql://" in request.connection_string or "postgres://" in request.connection_string:
+                connector_type = "postgresql"
+            elif "mysql://" in request.connection_string or "mysql+pymysql://" in request.connection_string:
+                connector_type = "mysql"
+            else:
+                raise ValueError("Unable to determine database type from connection string")
+            
+            connection_params = {"connection_string": request.connection_string}
         else:
             raise HTTPException(
                 status_code=400,
@@ -212,11 +374,12 @@ def test_database_connection(
             )
         
         # Test connection
-        DatabaseService.test_connection(connection_string)
+        connector_class = ConnectorRegistry.get_connector(connector_type)
+        connector_class.test_connection(connection_params)
         
         return {
             "success": True,
-            "message": "Database connection successful"
+            "message": f"{connector_class.connector_name()} connection successful"
         }
         
     except ValueError as e:
@@ -234,14 +397,23 @@ def test_spreadsheet_connection(
 ):
     """Test a Google Sheets connection"""
     try:
-        credentials = None
+        connection_params = {}
         
-        # Get credentials from repository or use provided ones
+        # Get connection params from repository or use provided ones
         if request.connection_id is not None:
-            repo = SpreadsheetRepository(db)
-            credentials = repo.get_credentials(request.connection_id)
+            repo = ConnectionRepository(db)
+            conn = repo.get_by_id(request.connection_id)
+            
+            # Verify it's a Google Sheets connection
+            if conn.connector_type != "google_sheets":
+                raise ValueError(f"Connection {request.connection_id} is not a Google Sheets connection")
+            
+            connection_params = repo.get_connection_params(request.connection_id)
         elif request.credentials is not None:
-            credentials = request.credentials
+            connection_params = {"credentials": request.credentials}
+            
+            if request.spreadsheet_id:
+                connection_params["spreadsheet_id"] = request.spreadsheet_id
         else:
             raise HTTPException(
                 status_code=400,
@@ -249,10 +421,8 @@ def test_spreadsheet_connection(
             )
         
         # Test connection
-        GoogleSheetsService.test_connection(
-            credentials=credentials,
-            spreadsheet_id=request.spreadsheet_id
-        )
+        connector_class = ConnectorRegistry.get_connector("google_sheets")
+        connector_class.test_connection(connection_params)
         
         return {
             "success": True,
