@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # Database URL for storing connections
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./database_connector.db")
     
+    # Add SECRET_KEY for encryption
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "wX9l9X.IG]V.SMjXVx1AysRO:ZM5U+G)Zf33[5\h:-hu1wEKoRh1[zEh|B;5:YAG")
+    
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     

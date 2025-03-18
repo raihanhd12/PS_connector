@@ -4,10 +4,12 @@ API routes for connector operations
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel, Field
+from datetime import datetime
 
 from app.connectors.registry import ConnectorRegistry
 from app.storage.database import get_db
 from app.storage.repository import ConnectionRepository
+
 
 router = APIRouter(prefix="/api/connectors", tags=["Connectors"])
 
@@ -117,7 +119,7 @@ class ConnectionResponse(BaseModel):
     name: str
     connector_type: str
     description: Optional[str] = None
-    created_at: str
+    created_at: datetime
 
 
 @router.post("/connections", response_model=ConnectionResponse, status_code=201)
