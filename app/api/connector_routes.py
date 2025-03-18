@@ -11,7 +11,6 @@ from app.storage.repository import ConnectionRepository
 
 router = APIRouter(prefix="/api/connectors", tags=["Connectors"])
 
-
 class ConnectorInfo(BaseModel):
     """Model for connector information"""
     type: str
