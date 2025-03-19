@@ -16,6 +16,6 @@ class Connection(Base):
     connector_type = Column(String(50), nullable=False)  # postgresql, mysql, google_sheets, etc.
     connection_params = Column(Text, nullable=False)  # Encrypted JSON
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now()) # pylint: disable=E1102
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now()) # pylint: disable=E1102
     is_active = Column(Boolean, default=True)
