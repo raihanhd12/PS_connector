@@ -5,6 +5,7 @@ from datetime import datetime
 
 from app.storage.database import database, connectors
 from app.models.connector import ConnectorCreate, ConnectorUpdate, Connector
+from app.utils.encryption import encrypt_data, decrypt_data
 
 class ConnectorRepository:
     """Repository for database connectors"""
@@ -14,7 +15,16 @@ class ConnectorRepository:
         """Get all connectors"""
         query = select(connectors)
         result = await database.fetch_all(query)
-        return [Connector.model_validate(dict(row)) for row in result]
+        connectors_list = []
+
+        for row in result:
+            connector_dict = dict(row)
+            # Decrypt config data
+            if connector_dict.get("config"):
+                connector_dict["config"] = decrypt_data(connector_dict["config"])
+            connectors_list.append(Connector.model_validate(connector_dict))
+
+        return connectors_list
 
     @staticmethod
     async def get_by_id(connector_id: str) -> Optional[Connector]:
@@ -22,7 +32,11 @@ class ConnectorRepository:
         query = select(connectors).where(connectors.c.id == connector_id)
         result = await database.fetch_one(query)
         if result:
-            return Connector.model_validate(dict(result))
+            connector_dict = dict(result)
+            # Decrypt config data
+            if connector_dict.get("config"):
+                connector_dict["config"] = decrypt_data(connector_dict["config"])
+            return Connector.model_validate(connector_dict)
         return None
 
     @staticmethod
@@ -31,7 +45,11 @@ class ConnectorRepository:
         query = select(connectors).where(connectors.c.name == name)
         result = await database.fetch_one(query)
         if result:
-            return Connector.model_validate(dict(result))
+            connector_dict = dict(result)
+            # Decrypt config data
+            if connector_dict.get("config"):
+                connector_dict["config"] = decrypt_data(connector_dict["config"])
+            return Connector.model_validate(connector_dict)
         return None
 
     @staticmethod
@@ -39,7 +57,16 @@ class ConnectorRepository:
         """Get connectors by type"""
         query = select(connectors).where(connectors.c.type == connector_type)
         result = await database.fetch_all(query)
-        return [Connector.model_validate(dict(row)) for row in result]
+        connectors_list = []
+
+        for row in result:
+            connector_dict = dict(row)
+            # Decrypt config data
+            if connector_dict.get("config"):
+                connector_dict["config"] = decrypt_data(connector_dict["config"])
+            connectors_list.append(Connector.model_validate(connector_dict))
+
+        return connectors_list
 
     @staticmethod
     async def create(connector: ConnectorCreate) -> Connector:
@@ -47,11 +74,14 @@ class ConnectorRepository:
         connector_id = str(uuid.uuid4())
         now = datetime.now()
 
+        # Encrypt sensitive config data
+        encrypted_config = encrypt_data(connector.config)
+
         query = insert(connectors).values(
             id=connector_id,
             name=connector.name,
             type=connector.type,
-            config=connector.config,
+            config=encrypted_config,
             description=connector.description,
             created_at=now,
             updated_at=now
@@ -77,7 +107,8 @@ class ConnectorRepository:
         if connector.description is not None:
             update_values["description"] = connector.description
         if connector.config is not None:
-            update_values["config"] = connector.config
+            # Encrypt config data
+            update_values["config"] = encrypt_data(connector.config)
 
         query = update(connectors).where(connectors.c.id == connector_id).values(**update_values)
         await database.execute(query)
