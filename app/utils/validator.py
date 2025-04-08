@@ -6,7 +6,8 @@ from app.models.connector import (
     MySQLConfig,
     PostgreSQLConfig,
     MongoDBConfig,
-    RedisConfig
+    RedisConfig,
+    GoogleSheetsConfig,
 )
 
 # Map connector types to their config models
@@ -15,6 +16,7 @@ CONFIG_VALIDATORS = {
     "postgresql": PostgreSQLConfig,
     "mongodb": MongoDBConfig,
     "redis": RedisConfig,
+    "googlesheets": GoogleSheetsConfig,
     # Add more as needed
 }
 

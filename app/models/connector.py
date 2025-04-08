@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 import uuid
 
 class ConnectorBase(BaseModel):
@@ -67,4 +67,32 @@ class RedisConfig(BaseModel):
     db: int = 0
     ssl: bool = False
 
-# Add more connector configs as needed
+class GoogleSheetsConfig(BaseModel):
+    """Google Sheets connection configuration - supports both OAuth and Service Account"""
+    # Either OAuth credentials or service account info is required
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+
+    # Service account alternative
+    service_account_info: Optional[Dict[str, Any]] = None
+
+    # Common fields
+    spreadsheet_id: Optional[str] = None
+    range: Optional[str] = None
+
+    # Custom validator
+    @model_validator(mode='after')
+    def check_auth_method(self):
+        # Check if OAuth credentials are provided
+        has_oauth = all(getattr(self, k) for k in ['client_id', 'client_secret', 'access_token', 'refresh_token'])
+
+        # Check if service account info is provided
+        has_service_account = self.service_account_info is not None
+
+        if not (has_oauth or has_service_account):
+            raise ValueError("Either OAuth credentials (client_id, client_secret, access_token, refresh_token) "
+                            "or service_account_info must be provided")
+
+        return self

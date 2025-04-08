@@ -557,3 +557,164 @@ class ConnectorManager:
                 "success": False,
                 "message": f"Failed to retrieve Google Sheets metadata: {str(e)}"
             }
+
+    @staticmethod
+    async def _test_googlesheets_connection(config: Dict[str, Any]) -> Dict[str, Any]:
+        """Test Google Sheets connection"""
+        try:
+            # Check if the required packages are installed
+            from googleapiclient.discovery import build
+            from google.oauth2.credentials import Credentials
+            from google.oauth2 import service_account
+        except ImportError:
+            return {
+                "success": False,
+                "message": "Google Sheets support requires google-api-python-client. Install with: pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib"
+            }
+
+        try:
+            logger.info(f"Testing Google Sheets connection with config: {config}")
+
+            # Determine which authentication method to use
+            if config.get("service_account_info"):
+                logger.info("Using service account authentication")
+                # Use service account
+                credentials = service_account.Credentials.from_service_account_info(
+                    config["service_account_info"],
+                    scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
+                )
+            else:
+                logger.info("Using OAuth authentication")
+                # Use OAuth
+                credentials = Credentials(
+                    token=config.get("access_token"),
+                    refresh_token=config.get("refresh_token"),
+                    client_id=config.get("client_id"),
+                    client_secret=config.get("client_secret"),
+                    token_uri="https://oauth2.googleapis.com/token"
+                )
+
+            # Create the service
+            service = build('sheets', 'v4', credentials=credentials)
+
+            # Test by getting spreadsheet metadata
+            if config.get("spreadsheet_id"):
+                # Get specific spreadsheet info if ID is provided
+                result = service.spreadsheets().get(spreadsheetId=config["spreadsheet_id"]).execute()
+                title = result.get("properties", {}).get("title", "Untitled")
+                return {
+                    "success": True,
+                    "message": f"Successfully connected to Google Sheets: {title}",
+                    "details": {
+                        "spreadsheet_id": config["spreadsheet_id"],
+                        "title": title
+                    }
+                }
+            else:
+                # Just verify the API connection works
+                return {
+                    "success": True,
+                    "message": "Successfully authenticated with Google Sheets API",
+                    "details": {}
+                }
+
+        except Exception as e:
+            logger.error(f"Google Sheets connection failed: {str(e)}", exc_info=True)
+            return {
+                "success": False,
+                "message": f"Google Sheets connection failed: {str(e)}"
+            }
+    @staticmethod
+    async def _get_googlesheets_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
+        """Get Google Sheets metadata"""
+        try:
+            from googleapiclient.discovery import build
+            from google.oauth2.credentials import Credentials
+            from google.oauth2 import service_account
+        except ImportError:
+            return {
+                "success": False,
+                "message": "Google Sheets support requires google-api-python-client"
+            }
+
+        try:
+            logger.info(f"Getting metadata for Google Sheets with config: {config}")
+
+            # Check if spreadsheet ID is provided
+            if "spreadsheet_id" not in config or not config["spreadsheet_id"]:
+                return {
+                    "success": False,
+                    "message": "Spreadsheet ID is required for metadata retrieval"
+                }
+
+            # Determine which authentication method to use
+            if config.get("service_account_info"):
+                logger.info("Using service account authentication for metadata")
+                # Use service account
+                credentials = service_account.Credentials.from_service_account_info(
+                    config["service_account_info"],
+                    scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
+                )
+            else:
+                logger.info("Using OAuth authentication for metadata")
+                # Use OAuth
+                credentials = Credentials(
+                    token=config.get("access_token"),
+                    refresh_token=config.get("refresh_token"),
+                    client_id=config.get("client_id"),
+                    client_secret=config.get("client_secret"),
+                    token_uri="https://oauth2.googleapis.com/token"
+                )
+
+            # Create the service
+            service = build('sheets', 'v4', credentials=credentials)
+
+            # Get the spreadsheet metadata
+            spreadsheet = service.spreadsheets().get(
+                spreadsheetId=config["spreadsheet_id"]
+            ).execute()
+
+            sheets = []
+            for sheet in spreadsheet.get("sheets", []):
+                props = sheet.get("properties", {})
+
+                # Try to get header row if possible
+                sheet_name = props.get("title", "")
+                range_name = f"'{sheet_name}'!A1:Z1"
+
+                headers = []
+                try:
+                    result = service.spreadsheets().values().get(
+                        spreadsheetId=config["spreadsheet_id"],
+                        range=range_name
+                    ).execute()
+
+                    values = result.get("values", [])
+                    if values and len(values) > 0:
+                        headers = values[0]
+                except Exception as header_error:
+                    # Just continue if we can't get headers
+                    logger.warning(f"Could not get headers for sheet '{sheet_name}': {str(header_error)}")
+                    pass
+
+                sheets.append({
+                    "name": sheet_name,
+                    "id": props.get("sheetId"),
+                    "headers": headers,
+                    "grid_properties": props.get("gridProperties", {})
+                })
+
+            return {
+                "success": True,
+                "spreadsheet": {
+                    "id": config["spreadsheet_id"],
+                    "title": spreadsheet.get("properties", {}).get("title", ""),
+                    "sheets": sheets
+                }
+            }
+        except Exception as e:
+            logger.error(f"Failed to retrieve Google Sheets metadata: {str(e)}", exc_info=True)
+            return {
+                "success": False,
+                "message": f"Failed to retrieve Google Sheets metadata: {str(e)}"
+            }

@@ -156,19 +156,3 @@ async def get_connector_metadata(connector_id: str):
     result = await ConnectorManager.get_metadata(connector.type, connector.config)
     return result
 
-# schema
-@router.get("/connectors/{connector_id}/schema", response_model=Dict[str, Any])
-async def get_connector_schema(connector_id: str):
-    """
-    Get schema information for a connector
-
-    Retrieves schema information from the data source (tables, columns, etc.)
-    """
-    # Get the connector
-    connector = await ConnectorRepository.get_by_id(connector_id)
-    if not connector:
-        raise HTTPException(status_code=404, detail="Connector not found")
-
-    # Get the schema
-    result = await ConnectorManager.get_schema(connector.type, connector.config)
-    return result

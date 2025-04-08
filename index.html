@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Database Connector Dashboard</title>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .connector-card {
+        transition: all 0.2s ease;
+      }
+      .connector-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+          0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      }
+      .loading {
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 min-h-screen">
+    <nav class="bg-blue-600 text-white p-4 shadow-md">
+      <div class="container mx-auto flex justify-between items-center">
+        <h1 class="text-2xl font-bold">Database Connector Dashboard</h1>
+        <div>
+          <button
+            id="add-connector-btn"
+            class="bg-white text-blue-600 px-4 py-2 rounded font-semibold hover:bg-blue-50"
+          >
+            Add Connector
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto p-6">
+      <!-- Filters -->
+      <div class="mb-6 flex gap-4">
+        <div class="flex-1">
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Search connectors..."
+            class="w-full p-3 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <select
+            id="type-filter"
+            class="p-3 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Types</option>
+            <option value="mysql">MySQL</option>
+            <option value="postgresql">PostgreSQL</option>
+            <option value="mongodb">MongoDB</option>
+            <option value="redis">Redis</option>
+            <option value="googlesheets">Google Sheets</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Status Messages -->
+      <div id="status-message" class="hidden mb-6 p-4 rounded"></div>
+
+      <!-- Connectors Grid -->
+      <div
+        id="connectors-grid"
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+      >
+        <!-- Connectors will be populated here -->
+        <div class="col-span-full text-center py-10 text-gray-500">
+          <i class="fas fa-spinner fa-spin text-4xl mb-3"></i>
+          <p>Loading connectors...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Connector Modal -->
+    <div
+      id="connector-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"
+    >
+      <div
+        class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-screen overflow-y-auto"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <h2 id="modal-title" class="text-2xl font-bold">Add New Connector</h2>
+          <button
+            id="close-modal"
+            aria-label="Close modal"
+            class="text-gray-500 hover:text-gray-700"
+          >
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
+
+        <form id="connector-form">
+          <input type="hidden" id="connector-id" />
+
+          <div class="mb-4">
+            <label
+              for="connector-name"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Connector Name</label
+            >
+            <input
+              type="text"
+              id="connector-name"
+              required
+              class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div class="mb-4">
+            <label
+              for="connector-type"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Connector Type</label
+            >
+            <select
+              id="connector-type"
+              required
+              class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select Type</option>
+              <option value="mysql">MySQL</option>
+              <option value="postgresql">PostgreSQL</option>
+              <option value="mongodb">MongoDB</option>
+              <option value="redis">Redis</option>
+              <option value="googlesheets">Google Sheets</option>
+            </select>
+          </div>
+
+          <div class="mb-4">
+            <label
+              for="connector-description"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Description (Optional)</label
+            >
+            <textarea
+              id="connector-description"
+              rows="2"
+              class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            ></textarea>
+          </div>
+
+          <div id="config-fields" class="mb-6">
+            <!-- Configuration fields will be populated based on connector type -->
+            <p class="text-gray-500 italic text-sm">
+              Select a connector type to configure connection details
+            </p>
+          </div>
+
+          <div class="flex justify-between">
+            <button
+              type="button"
+              id="test-connection-btn"
+              class="bg-gray-100 text-gray-800 px-4 py-2 rounded font-semibold hover:bg-gray-200 disabled:opacity-50"
+            >
+              Test Connection
+            </button>
+            <div>
+              <button
+                type="button"
+                id="cancel-btn"
+                class="bg-gray-300 text-gray-800 px-4 py-2 rounded font-semibold hover:bg-gray-400 mr-2"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                id="save-btn"
+                class="bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700"
+              >
+                Save Connector
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div
+      id="confirm-delete-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <h2 class="text-xl font-bold mb-4">Confirm Deletion</h2>
+        <p>
+          Are you sure you want to delete this connector? This action cannot be
+          undone.
+        </p>
+        <div class="flex justify-end mt-6 gap-4">
+          <button
+            id="cancel-delete"
+            class="bg-gray-300 text-gray-800 px-4 py-2 rounded font-semibold hover:bg-gray-400"
+          >
+            Cancel
+          </button>
+          <button
+            id="confirm-delete"
+            class="bg-red-600 text-white px-4 py-2 rounded font-semibold hover:bg-red-700"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metadata Modal -->
+    <div
+      id="metadata-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"
+    >
+      <div
+        class="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6 max-h-screen overflow-y-auto"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <h2 id="metadata-title" class="text-2xl font-bold">
+            Connector Metadata
+          </h2>
+          <button
+            id="close-metadata"
+            class="text-gray-500 hover:text-gray-700"
+            aria-label="Close metadata modal"
+          >
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
+        <div id="metadata-content" class="space-y-4">
+          <!-- Metadata content will be populated here -->
+          <div class="text-center py-10">
+            <div class="loading mx-auto mb-3"></div>
+            <p>Loading metadata...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // API configuration
+      const API_BASE_URL = "http://localhost:8000/api";
+      let API_KEY = ""; // Will be set by user
+
+      // Current connectors data
+      let connectors = [];
+      let currentConnectorId = null;
+
+      // DOM References
+      const connectorsGrid = document.getElementById("connectors-grid");
+      const searchInput = document.getElementById("search-input");
+      const typeFilter = document.getElementById("type-filter");
+      const statusMessage = document.getElementById("status-message");
+      const addConnectorBtn = document.getElementById("add-connector-btn");
+
+      // Modal References
+      const connectorModal = document.getElementById("connector-modal");
+      const modalTitle = document.getElementById("modal-title");
+      const connectorForm = document.getElementById("connector-form");
+      const connectorIdInput = document.getElementById("connector-id");
+      const connectorNameInput = document.getElementById("connector-name");
+      const connectorTypeInput = document.getElementById("connector-type");
+      const connectorDescriptionInput = document.getElementById(
+        "connector-description"
+      );
+      const configFields = document.getElementById("config-fields");
+      const closeModalBtn = document.getElementById("close-modal");
+      const cancelBtn = document.getElementById("cancel-btn");
+      const testConnectionBtn = document.getElementById("test-connection-btn");
+
+      // Delete Modal References
+      const confirmDeleteModal = document.getElementById(
+        "confirm-delete-modal"
+      );
+      const cancelDeleteBtn = document.getElementById("cancel-delete");
+      const confirmDeleteBtn = document.getElementById("confirm-delete");
+
+      // Metadata Modal References
+      const metadataModal = document.getElementById("metadata-modal");
+      const metadataTitle = document.getElementById("metadata-title");
+      const metadataContent = document.getElementById("metadata-content");
+      const closeMetadataBtn = document.getElementById("close-metadata");
+
+      // Event Listeners
+      document.addEventListener("DOMContentLoaded", initializeApp);
+      addConnectorBtn.addEventListener("click", showAddConnectorModal);
+      closeModalBtn.addEventListener("click", hideConnectorModal);
+      cancelBtn.addEventListener("click", hideConnectorModal);
+      connectorTypeInput.addEventListener("change", updateConfigFields);
+      connectorForm.addEventListener("submit", saveConnector);
+      testConnectionBtn.addEventListener("click", testConnection);
+      searchInput.addEventListener("input", filterConnectors);
+      typeFilter.addEventListener("change", filterConnectors);
+      cancelDeleteBtn.addEventListener("click", hideDeleteModal);
+      confirmDeleteBtn.addEventListener("click", deleteConnector);
+      closeMetadataBtn.addEventListener("click", hideMetadataModal);
+
+      // Initialize the application
+      function initializeApp() {
+        // Check if API key is stored
+        const storedApiKey = localStorage.getItem("connectorApiKey");
+        if (storedApiKey) {
+          API_KEY = storedApiKey;
+          loadConnectors();
+        } else {
+          promptForApiKey();
+        }
+      }
+
+      // Prompt user for API key
+      function promptForApiKey() {
+        const apiKey = prompt("Please enter your API key:");
+        if (apiKey) {
+          API_KEY = apiKey;
+          localStorage.setItem("connectorApiKey", apiKey);
+          loadConnectors();
+        } else {
+          showStatus("API key is required to use this application.", "error");
+        }
+      }
+
+      // Load all connectors from the API
+      async function loadConnectors() {
+        try {
+          connectorsGrid.innerHTML = `
+                        <div class="col-span-full text-center py-10 text-gray-500">
+                            <i class="fas fa-spinner fa-spin text-4xl mb-3"></i>
+                            <p>Loading connectors...</p>
+                        </div>
+                    `;
+
+          const response = await fetch(`${API_BASE_URL}/connectors`, {
+            headers: {
+              "X-API-Key": API_KEY,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+          }
+
+          connectors = await response.json();
+          renderConnectors();
+        } catch (error) {
+          console.error("Failed to load connectors:", error);
+          showStatus(`Failed to load connectors: ${error.message}`, "error");
+          connectorsGrid.innerHTML = `
+                        <div class="col-span-full text-center py-10 text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <p>Failed to load connectors. Please check your API key or try again later.</p>
+                        </div>
+                    `;
+        }
+      }
+
+      // Render connectors grid
+      function renderConnectors(filtered = null) {
+        const displayConnectors = filtered || connectors;
+
+        if (displayConnectors.length === 0) {
+          connectorsGrid.innerHTML = `
+                        <div class="col-span-full text-center py-10 text-gray-500">
+                            <i class="fas fa-search text-4xl mb-3"></i>
+                            <p>No connectors found. Add your first connector to get started.</p>
+                        </div>
+                    `;
+          return;
+        }
+
+        connectorsGrid.innerHTML = displayConnectors
+          .map(
+            (connector) => `
+                    <div class="connector-card bg-white rounded-lg shadow-md overflow-hidden">
+                        <div class="p-6">
+                            <div class="flex justify-between items-start">
+                                <h3 class="text-xl font-bold text-gray-800 mb-2">${
+                                  connector.name
+                                }</h3>
+                                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full uppercase font-semibold tracking-wide">
+                                    ${connector.type}
+                                </span>
+                            </div>
+                            <p class="text-gray-600 mb-4 text-sm h-12 overflow-hidden">
+                                ${
+                                  connector.description ||
+                                  "No description provided."
+                                }
+                            </p>
+                            <div class="flex flex-wrap gap-2 mb-4">
+                                <span class="text-xs text-gray-500">
+                                    Created: ${new Date(
+                                      connector.created_at
+                                    ).toLocaleDateString()}
+                                </span>
+                                <span class="text-xs text-gray-500">
+                                    Updated: ${new Date(
+                                      connector.updated_at
+                                    ).toLocaleDateString()}
+                                </span>
+                            </div>
+                            <div class="flex justify-between">
+                                <div>
+                                    <button class="test-btn bg-green-50 text-green-700 px-3 py-1 rounded text-sm hover:bg-green-100" data-id="${
+                                      connector.id
+                                    }">
+                                        Test
+                                    </button>
+                                    <button class="metadata-btn bg-blue-50 text-blue-700 px-3 py-1 rounded text-sm hover:bg-blue-100" data-id="${
+                                      connector.id
+                                    }">
+                                        Metadata
+                                    </button>
+                                </div>
+                                <div>
+                                    <button class="edit-btn text-gray-500 hover:text-gray-700 mr-2" data-id="${
+                                      connector.id
+                                    }">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="delete-btn text-red-500 hover:text-red-700" data-id="${
+                                      connector.id
+                                    }">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `
+          )
+          .join("");
+
+        // Add event listeners to new buttons
+        document.querySelectorAll(".edit-btn").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            showEditConnectorModal(btn.getAttribute("data-id"))
+          );
+        });
+
+        document.querySelectorAll(".delete-btn").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            showDeleteModal(btn.getAttribute("data-id"))
+          );
+        });
+
+        document.querySelectorAll(".test-btn").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            testExistingConnection(btn.getAttribute("data-id"))
+          );
+        });
+
+        document.querySelectorAll(".metadata-btn").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            showMetadata(btn.getAttribute("data-id"))
+          );
+        });
+      }
+
+      // Filter connectors based on search and type filter
+      function filterConnectors() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const typeValue = typeFilter.value.toLowerCase();
+
+        const filtered = connectors.filter((connector) => {
+          const matchesSearch =
+            connector.name.toLowerCase().includes(searchTerm) ||
+            (connector.description &&
+              connector.description.toLowerCase().includes(searchTerm));
+          const matchesType =
+            !typeValue || connector.type.toLowerCase() === typeValue;
+          return matchesSearch && matchesType;
+        });
+
+        renderConnectors(filtered);
+      }
+
+      // Show add connector modal
+      function showAddConnectorModal() {
+        modalTitle.textContent = "Add New Connector";
+        connectorForm.reset();
+        connectorIdInput.value = "";
+        currentConnectorId = null;
+        configFields.innerHTML = `<p class="text-gray-500 italic text-sm">Select a connector type to configure connection details</p>`;
+        testConnectionBtn.disabled = true;
+
+        connectorModal.classList.remove("hidden");
+
+        // Set focus to name field
+        setTimeout(() => connectorNameInput.focus(), 100);
+      }
+
+      // Show edit connector modal
+      // Show edit connector modal
+      function showEditConnectorModal(connectorId) {
+        const connector = connectors.find((c) => c.id === connectorId);
+        if (!connector) return;
+
+        modalTitle.textContent = "Edit Connector";
+        connectorIdInput.value = connector.id;
+        currentConnectorId = connector.id;
+        connectorNameInput.value = connector.name;
+        connectorTypeInput.value = connector.type;
+        connectorDescriptionInput.value = connector.description || "";
+
+        // Generate config fields for the connector type
+        updateConfigFields();
+
+        // Populate config values with special handling for Google Sheets
+        if (
+          connector.type === "googlesheets" &&
+          connector.config.service_account_info
+        ) {
+          // For service account info, stringify it to display in textarea
+          const serviceAccountInput = document.getElementById(
+            "config-service_account_info"
+          );
+          if (serviceAccountInput) {
+            serviceAccountInput.value = JSON.stringify(
+              connector.config.service_account_info,
+              null,
+              2
+            );
+          }
+
+          // Set other fields normally
+          Object.entries(connector.config).forEach(([key, value]) => {
+            if (key !== "service_account_info") {
+              // Skip service_account_info as we handled it separately
+              const input = document.getElementById(`config-${key}`);
+              if (input) {
+                input.value = value;
+              }
+            }
+          });
+        } else {
+          // For other connector types, populate normally
+          Object.entries(connector.config).forEach(([key, value]) => {
+            const input = document.getElementById(`config-${key}`);
+            if (input) {
+              input.value = value;
+            }
+          });
+        }
+
+        testConnectionBtn.disabled = false;
+        connectorModal.classList.remove("hidden");
+      }
+
+      // Hide connector modal
+      function hideConnectorModal() {
+        connectorModal.classList.add("hidden");
+      }
+
+      // Update configuration fields based on selected connector type
+      // Update configuration fields based on selected connector type
+      function updateConfigFields() {
+        const connectorType = connectorTypeInput.value;
+        if (!connectorType) {
+          configFields.innerHTML = `<p class="text-gray-500 italic text-sm">Select a connector type to configure connection details</p>`;
+          testConnectionBtn.disabled = true;
+          return;
+        }
+
+        testConnectionBtn.disabled = false;
+
+        // Generate fields based on connector type
+        let fieldsHTML = "";
+
+        switch (connectorType) {
+          case "mysql":
+            fieldsHTML = `
+                      <h3 class="font-semibold text-lg mb-2">MySQL Configuration</h3>
+                      <div class="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                              <label for="config-host" class="block text-sm font-medium text-gray-700 mb-1">Host</label>
+                              <input type="text" id="config-host" required
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                          <div>
+                              <label for="config-port" class="block text-sm font-medium text-gray-700 mb-1">Port</label>
+                              <input type="number" id="config-port" value="3306" required
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                      </div>
+                      <div class="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                              <label for="config-user" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                              <input type="text" id="config-user" required
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                          <div>
+                              <label for="config-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                              <input type="password" id="config-password" required
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                      </div>
+                      <div class="mb-4">
+                          <label for="config-database" class="block text-sm font-medium text-gray-700 mb-1">Database</label>
+                          <input type="text" id="config-database" required
+                              class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      </div>
+                      <div class="mb-4">
+                          <label for="config-charset" class="block text-sm font-medium text-gray-700 mb-1">Charset</label>
+                          <input type="text" id="config-charset" value="utf8mb4"
+                              class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      </div>
+                  `;
+            break;
+
+          case "postgresql":
+            fieldsHTML = `
+                      <h3 class="font-semibold text-lg mb-2">PostgreSQL Configuration</h3>
+                      <div class="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                              <label for="config-host" class="block text-sm font-medium text-gray-700 mb-1">Host</label>
+                              <input type="text" id="config-host" required
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                          <div>
+                              <label for="config-port" class="block text-sm font-medium text-gray-700 mb-1">Port</label>
+                              <input type="number" id="config-port" value="5432" required
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                      </div>
+                      <div class="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                              <label for="config-user" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                              <input type="text" id="config-user" required
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                          <div>
+                              <label for="config-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                              <input type="password" id="config-password" required
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                      </div>
+                      <div class="mb-4">
+                          <label for="config-database" class="block text-sm font-medium text-gray-700 mb-1">Database</label>
+                          <input type="text" id="config-database" required
+                              class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      </div>
+                      <div class="mb-4">
+                          <label for="config-sslmode" class="block text-sm font-medium text-gray-700 mb-1">SSL Mode</label>
+                          <select id="config-sslmode"
+                              class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                              <option value="prefer">prefer</option>
+                              <option value="require">require</option>
+                              <option value="disable">disable</option>
+                              <option value="verify-ca">verify-ca</option>
+                              <option value="verify-full">verify-full</option>
+                          </select>
+                      </div>
+                  `;
+            break;
+
+          case "mongodb":
+            fieldsHTML = `
+                      <h3 class="font-semibold text-lg mb-2">MongoDB Configuration</h3>
+                      <div class="mb-4">
+                          <label for="config-uri" class="block text-sm font-medium text-gray-700 mb-1">Connection URI</label>
+                          <input type="text" id="config-uri" required placeholder="mongodb://user:password@host:port/database"
+                              class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      </div>
+                      <div class="mb-4">
+                          <label for="config-database" class="block text-sm font-medium text-gray-700 mb-1">Database</label>
+                          <input type="text" id="config-database" required
+                              class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      </div>
+                      <div class="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                              <label for="config-auth_source" class="block text-sm font-medium text-gray-700 mb-1">Auth Source (Optional)</label>
+                              <input type="text" id="config-auth_source"
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                          <div>
+                              <label for="config-auth_mechanism" class="block text-sm font-medium text-gray-700 mb-1">Auth Mechanism (Optional)</label>
+                              <input type="text" id="config-auth_mechanism"
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                      </div>
+                  `;
+            break;
+
+          case "redis":
+            fieldsHTML = `
+                      <h3 class="font-semibold text-lg mb-2">Redis Configuration</h3>
+                      <div class="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                              <label for="config-host" class="block text-sm font-medium text-gray-700 mb-1">Host</label>
+                              <input type="text" id="config-host" required
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                          <div>
+                              <label for="config-port" class="block text-sm font-medium text-gray-700 mb-1">Port</label>
+                              <input type="number" id="config-port" value="6379" required
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                      </div>
+                      <div class="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                              <label for="config-password" class="block text-sm font-medium text-gray-700 mb-1">Password (Optional)</label>
+                              <input type="password" id="config-password"
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                          <div>
+                              <label for="config-db" class="block text-sm font-medium text-gray-700 mb-1">Database Number</label>
+                              <input type="number" id="config-db" value="0" min="0"
+                                  class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          </div>
+                      </div>
+                      <div class="mb-4">
+                          <label class="flex items-center">
+                              <input type="checkbox" id="config-ssl" class="mr-2">
+                              <span class="text-sm font-medium text-gray-700">Use SSL</span>
+                          </label>
+                      </div>
+                  `;
+            break;
+
+          case "googlesheets":
+            fieldsHTML = `
+                  <h3 class="font-semibold text-lg mb-2">Google Sheets Configuration</h3>
+                  <div class="mb-4">
+                      <label for="config-service_account_info" class="block text-sm font-medium text-gray-700 mb-1">Service Account JSON</label>
+                      <textarea id="config-service_account_info" rows="10" required
+                          class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                      <p class="text-xs text-gray-500 mt-1">Paste the entire service account JSON file content here.</p>
+                  </div>
+                  <div class="mb-4">
+                      <label for="config-spreadsheet_id" class="block text-sm font-medium text-gray-700 mb-1">Spreadsheet ID</label>
+                      <input type="text" id="config-spreadsheet_id"
+                          class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <p class="text-xs text-gray-500 mt-1">Optional. If provided, connection test will verify access to this specific sheet.</p>
+                  </div>
+                  <div class="mb-4">
+                      <label for="config-range" class="block text-sm font-medium text-gray-700 mb-1">Range</label>
+                      <input type="text" id="config-range"
+                          class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <p class="text-xs text-gray-500 mt-1">Optional. If provided, this specific range will be used for queries (e.g. 'Sheet1!A1:D10').</p>
+                  </div>
+              `;
+            break;
+
+          default:
+            fieldsHTML = `<p class="text-gray-500 italic text-sm">Unknown connector type selected.</p>`;
+            break;
+        }
+
+        configFields.innerHTML = fieldsHTML;
+      }
+      // Save connector
+      async function saveConnector(event) {
+        event.preventDefault();
+
+        // Collect form data
+        const name = connectorNameInput.value.trim();
+        const type = connectorTypeInput.value;
+        const description = connectorDescriptionInput.value.trim();
+
+        // Build config object based on connector type
+        const config = {};
+        const configInputs = document.querySelectorAll('[id^="config-"]');
+        configInputs.forEach((input) => {
+          const key = input.id.replace("config-", "");
+          if (input.type === "checkbox") {
+            config[key] = input.checked;
+          } else if (input.type === "number") {
+            config[key] = parseInt(input.value, 10);
+          } else {
+            config[key] = input.value;
+          }
+        });
+
+        // Special handling for Google Sheets service account
+        if (type === "googlesheets") {
+          // Parse the service account JSON string to an object
+          try {
+            const serviceAccountText = document.getElementById(
+              "config-service_account_info"
+            ).value;
+            if (serviceAccountText) {
+              config.service_account_info = JSON.parse(serviceAccountText);
+            }
+          } catch (error) {
+            showStatus(
+              "Invalid service account JSON. Please check the format.",
+              "error"
+            );
+            return;
+          }
+        }
+
+        // Build request payload
+        const connectorData = {
+          name,
+          type,
+          config,
+          description: description || null,
+        };
+
+        try {
+          let response;
+
+          if (currentConnectorId) {
+            // Update existing connector
+            response = await fetch(
+              `${API_BASE_URL}/connectors/${currentConnectorId}`,
+              {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-API-Key": API_KEY,
+                },
+                body: JSON.stringify(connectorData),
+              }
+            );
+          } else {
+            // Create new connector
+            response = await fetch(`${API_BASE_URL}/connectors`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-API-Key": API_KEY,
+              },
+              body: JSON.stringify(connectorData),
+            });
+          }
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(
+              errorData.detail ||
+                `Error ${response.status}: ${response.statusText}`
+            );
+          }
+
+          const result = await response.json();
+
+          // Hide modal and reload connectors
+          hideConnectorModal();
+          showStatus(
+            `Connector ${
+              currentConnectorId ? "updated" : "created"
+            } successfully!`,
+            "success"
+          );
+          await loadConnectors();
+        } catch (error) {
+          console.error("Failed to save connector:", error);
+          showStatus(`Failed to save connector: ${error.message}`, "error");
+        }
+      }
+
+      // Test connection
+      async function testConnection() {
+        // Collect config data from form
+        const type = connectorTypeInput.value;
+
+        // Build config object based on connector type
+        const config = {};
+        const configInputs = document.querySelectorAll('[id^="config-"]');
+        configInputs.forEach((input) => {
+          const key = input.id.replace("config-", "");
+          if (input.type === "checkbox") {
+            config[key] = input.checked;
+          } else if (input.type === "number") {
+            config[key] = parseInt(input.value, 10);
+          } else {
+            config[key] = input.value;
+          }
+        });
+
+        // Special handling for Google Sheets service account
+        if (type === "googlesheets") {
+          try {
+            const serviceAccountText = document.getElementById(
+              "config-service_account_info"
+            ).value;
+            if (serviceAccountText) {
+              config.service_account_info = JSON.parse(serviceAccountText);
+            }
+          } catch (error) {
+            showStatus(
+              "Invalid service account JSON. Please check the format.",
+              "error"
+            );
+            return;
+          }
+        }
+
+        // Build request payload
+        const testData = {
+          name: "test-connection",
+          type,
+          config,
+          description: null,
+        };
+
+        try {
+          // Disable the test button and show loading state
+          testConnectionBtn.disabled = true;
+          testConnectionBtn.innerHTML =
+            '<div class="loading inline-block mr-2"></div> Testing...';
+
+          // Send test request
+          const response = await fetch(`${API_BASE_URL}/connectors/test`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-API-Key": API_KEY,
+            },
+            body: JSON.stringify(testData),
+          });
+
+          const result = await response.json();
+
+          // Show result to user
+          if (result.success) {
+            showStatus(
+              `Connection test successful: ${result.message}`,
+              "success"
+            );
+          } else {
+            showStatus(`Connection test failed: ${result.message}`, "error");
+          }
+        } catch (error) {
+          console.error("Failed to test connection:", error);
+          showStatus(`Failed to test connection: ${error.message}`, "error");
+        } finally {
+          // Restore button state
+          testConnectionBtn.disabled = false;
+          testConnectionBtn.innerHTML = "Test Connection";
+        }
+      }
+
+      // Test existing connection
+      async function testExistingConnection(connectorId) {
+        try {
+          // Find the button and update it to show loading state
+          const button = document.querySelector(
+            `.test-btn[data-id="${connectorId}"]`
+          );
+          const originalText = button.textContent;
+          button.innerHTML = '<div class="loading inline-block mr-1"></div>';
+          button.disabled = true;
+
+          // Get the connector to access its config
+          const connector = connectors.find((c) => c.id === connectorId);
+          if (!connector) {
+            throw new Error("Connector not found");
+          }
+
+          // Send test request
+          const response = await fetch(
+            `${API_BASE_URL}/connectors/${connectorId}/test`,
+            {
+              method: "POST",
+              headers: {
+                "X-API-Key": API_KEY,
+              },
+            }
+          );
+
+          const result = await response.json();
+
+          // Show result to user
+          if (result.success) {
+            showStatus(
+              `Connection test successful: ${result.message}`,
+              "success"
+            );
+          } else {
+            showStatus(`Connection test failed: ${result.message}`, "error");
+          }
+        } catch (error) {
+          console.error("Failed to test connection:", error);
+          showStatus(`Failed to test connection: ${error.message}`, "error");
+        } finally {
+          // Restore button state
+          const button = document.querySelector(
+            `.test-btn[data-id="${connectorId}"]`
+          );
+          button.textContent = "Test";
+          button.disabled = false;
+        }
+      }
+
+      // Show metadata
+      async function showMetadata(connectorId) {
+        try {
+          const connector = connectors.find((c) => c.id === connectorId);
+          if (!connector) return;
+
+          metadataTitle.textContent = `Metadata: ${connector.name}`;
+          metadataContent.innerHTML = `
+                        <div class="text-center py-10">
+                            <div class="loading mx-auto mb-3"></div>
+                            <p>Loading metadata...</p>
+                        </div>
+                    `;
+          metadataModal.classList.remove("hidden");
+
+          // Send metadata request
+          const response = await fetch(
+            `${API_BASE_URL}/connectors/${connectorId}/metadata`,
+            {
+              method: "POST",
+              headers: {
+                "X-API-Key": API_KEY,
+              },
+            }
+          );
+
+          const result = await response.json();
+
+          if (!result.success) {
+            throw new Error(result.message);
+          }
+
+          // Render metadata based on connector type
+          let metadataHTML = "";
+
+          if (connector.type === "mysql" || connector.type === "postgresql") {
+            metadataHTML = `
+                            <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                                <h3 class="text-lg font-semibold text-blue-700">Database Info</h3>
+                                <p class="text-blue-600">Database: ${
+                                  result.database
+                                }</p>
+                            </div>
+
+                            <h3 class="text-lg font-semibold mb-2">Tables</h3>
+                            <div class="space-y-4">
+                                ${result.tables
+                                  .map(
+                                    (table) => `
+                                    <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                        <div class="bg-gray-100 p-3 font-medium border-b border-gray-200">
+                                            ${table.name}
+                                        </div>
+                                        <div class="p-3">
+                                            <table class="min-w-full divide-y divide-gray-200">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Column</th>
+                                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-gray-200">
+                                                    ${table.columns
+                                                      .map(
+                                                        (column) => `
+                                                        <tr>
+                                                            <td class="px-4 py-2 text-sm font-medium text-gray-700">${column.name}</td>
+                                                            <td class="px-4 py-2 text-sm text-gray-500">${column.type}</td>
+                                                        </tr>
+                                                    `
+                                                      )
+                                                      .join("")}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                `
+                                  )
+                                  .join("")}
+                            </div>
+                        `;
+          } else if (connector.type === "mongodb") {
+            metadataHTML = `
+                            <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                                <h3 class="text-lg font-semibold text-blue-700">Database Info</h3>
+                                <p class="text-blue-600">Database: ${
+                                  result.database
+                                }</p>
+                            </div>
+
+                            <h3 class="text-lg font-semibold mb-2">Collections</h3>
+                            <div class="space-y-4">
+                                ${result.collections
+                                  .map(
+                                    (collection) => `
+                                    <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                        <div class="bg-gray-100 p-3 font-medium border-b border-gray-200">
+                                            ${collection.name}
+                                        </div>
+                                        <div class="p-3">
+                                            <table class="min-w-full divide-y divide-gray-200">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Field</th>
+                                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-gray-200">
+                                                    ${collection.fields
+                                                      .map(
+                                                        (field) => `
+                                                        <tr>
+                                                            <td class="px-4 py-2 text-sm font-medium text-gray-700">${field.name}</td>
+                                                            <td class="px-4 py-2 text-sm text-gray-500">${field.type}</td>
+                                                        </tr>
+                                                    `
+                                                      )
+                                                      .join("")}
+                                                    ${
+                                                      collection.fields
+                                                        .length === 0
+                                                        ? '<tr><td colspan="2" class="px-4 py-2 text-sm text-gray-500 italic">No sample fields available</td></tr>'
+                                                        : ""
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                `
+                                  )
+                                  .join("")}
+                            </div>
+                        `;
+          } else if (connector.type === "googlesheets") {
+            metadataHTML = `
+            <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                <h3 class="text-lg font-semibold text-blue-700">Spreadsheet Info</h3>
+                <p class="text-blue-600">Title: ${result.spreadsheet.title}</p>
+                <p class="text-blue-600">ID: ${result.spreadsheet.id}</p>
+            </div>
+
+            <h3 class="text-lg font-semibold mb-2">Sheets</h3>
+            <div class="space-y-4">
+                ${result.spreadsheet.sheets
+                  .map(
+                    (sheet) => `
+                    <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="bg-gray-100 p-3 font-medium border-b border-gray-200">
+                        ${sheet.name}
+                    </div>
+                    <div class="p-3">
+                        ${
+                          sheet.headers && sheet.headers.length > 0
+                            ? `
+                            <h4 class="text-md font-medium mb-2">Headers</h4>
+                            <div class="flex flex-wrap gap-2 mb-3">
+                            ${sheet.headers
+                              .map(
+                                (header) => `
+                                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                    ${header}
+                                </span>
+                                `
+                              )
+                              .join("")}
+                            </div>
+                        `
+                            : '<p class="text-gray-500 italic">No header information available</p>'
+                        }
+
+                        <h4 class="text-md font-medium mb-2">Properties</h4>
+                        <div class="grid grid-cols-2 gap-2">
+                        <div class="text-sm">
+                            <span class="font-medium">Grid ID:</span> ${
+                              sheet.id
+                            }
+                        </div>
+                        ${
+                          sheet.grid_properties
+                            ? `
+                            <div class="text-sm">
+                                <span class="font-medium">Rows:</span> ${
+                                  sheet.grid_properties.rowCount || "N/A"
+                                }
+                            </div>
+                            <div class="text-sm">
+                                <span class="font-medium">Columns:</span> ${
+                                  sheet.grid_properties.columnCount || "N/A"
+                                }
+                            </div>
+                            `
+                            : ""
+                        }
+                        </div>
+                    </div>
+                    </div>
+                `
+                  )
+                  .join("")}
+            </div>
+            `;
+          } else {
+            metadataHTML = `
+                            <div class="bg-yellow-50 p-4 rounded-lg">
+                                <h3 class="text-lg font-semibold text-yellow-700 mb-2">Limited Metadata Available</h3>
+                                <p class="text-yellow-600">Detailed metadata display is not implemented for ${
+                                  connector.type
+                                } connectors.</p>
+                                <p class="text-yellow-600 mt-2">Raw response:</p>
+                                <pre class="bg-gray-100 p-3 rounded mt-2 overflow-auto max-h-96">${JSON.stringify(
+                                  result,
+                                  null,
+                                  2
+                                )}</pre>
+                            </div>
+                        `;
+          }
+
+          metadataContent.innerHTML = metadataHTML;
+        } catch (error) {
+          console.error("Failed to retrieve metadata:", error);
+          metadataContent.innerHTML = `
+                        <div class="bg-red-50 p-4 rounded-lg">
+                            <h3 class="text-lg font-semibold text-red-700 mb-2">Error Retrieving Metadata</h3>
+                            <p class="text-red-600">${error.message}</p>
+                        </div>
+                    `;
+        }
+      }
+
+      // Show delete confirmation modal
+      function showDeleteModal(connectorId) {
+        currentConnectorId = connectorId;
+        confirmDeleteModal.classList.remove("hidden");
+      }
+
+      // Hide delete modal
+      function hideDeleteModal() {
+        confirmDeleteModal.classList.add("hidden");
+        currentConnectorId = null;
+      }
+
+      // Delete connector
+      async function deleteConnector() {
+        if (!currentConnectorId) {
+          hideDeleteModal();
+          return;
+        }
+
+        try {
+          // Update button to show loading state
+          confirmDeleteBtn.innerHTML =
+            '<div class="loading inline-block mr-2"></div> Deleting...';
+          confirmDeleteBtn.disabled = true;
+
+          // Send delete request
+          const response = await fetch(
+            `${API_BASE_URL}/connectors/${currentConnectorId}`,
+            {
+              method: "DELETE",
+              headers: {
+                "X-API-Key": API_KEY,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+          }
+
+          // Hide modal and reload connectors
+          hideDeleteModal();
+          showStatus("Connector deleted successfully!", "success");
+          await loadConnectors();
+        } catch (error) {
+          console.error("Failed to delete connector:", error);
+          showStatus(`Failed to delete connector: ${error.message}`, "error");
+          confirmDeleteBtn.innerHTML = "Delete";
+          confirmDeleteBtn.disabled = false;
+        }
+      }
+
+      // Hide metadata modal
+      function hideMetadataModal() {
+        metadataModal.classList.add("hidden");
+      }
+
+      // Show status message
+      function showStatus(message, type) {
+        statusMessage.textContent = message;
+        statusMessage.classList.remove(
+          "hidden",
+          "bg-green-100",
+          "text-green-800",
+          "bg-red-100",
+          "text-red-800",
+          "bg-blue-100",
+          "text-blue-800"
+        );
+
+        if (type === "success") {
+          statusMessage.classList.add("bg-green-100", "text-green-800");
+        } else if (type === "error") {
+          statusMessage.classList.add("bg-red-100", "text-red-800");
+        } else {
+          statusMessage.classList.add("bg-blue-100", "text-blue-800");
+        }
+
+        statusMessage.classList.remove("hidden");
+
+        // Hide message after 5 seconds
+        setTimeout(() => {
+          statusMessage.classList.add("hidden");
+        }, 5000);
+      }
+    </script>
+  </body>
+</html>

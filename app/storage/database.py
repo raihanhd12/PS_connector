@@ -19,10 +19,10 @@ connectors = sqlalchemy.Table(
     sqlalchemy.Column("type", sqlalchemy.String(50), nullable=False, index=True),
     sqlalchemy.Column("config", sqlalchemy.JSON, nullable=False),
     sqlalchemy.Column("description", sqlalchemy.Text, nullable=True),
-    sqlalchemy.Column("created_at", sqlalchemy.DateTime, default=sqlalchemy.sql.func.now()),
+    sqlalchemy.Column("created_at", sqlalchemy.DateTime, default=sqlalchemy.sql.func.now()), # pylint: disable=not-callable
     sqlalchemy.Column("updated_at", sqlalchemy.DateTime,
-                     default=sqlalchemy.sql.func.now(),
-                     onupdate=sqlalchemy.sql.func.now()),
+                     default=sqlalchemy.sql.func.now(), # pylint: disable=not-callable
+                     onupdate=sqlalchemy.sql.func.now()), # pylint: disable=not-callable
 )
 
 # Create engine
