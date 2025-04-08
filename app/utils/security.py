@@ -1,91 +1,22 @@
-"""
-Security utilities for encryption and decryption
-"""
-import base64
-import json
-from typing import Dict, Any, Union
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from fastapi import HTTPException, Security, Depends
+from fastapi.security import APIKeyHeader
+from starlette.status import HTTP_403_FORBIDDEN
 
 from app.config import settings
 
+# API Key security scheme
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-def get_encryption_key() -> bytes:
+async def validate_api_key(api_key: str = Security(api_key_header)):
     """
-    Get encryption key for sensitive data
-    
-    Returns:
-        bytes: Encryption key for Fernet
-    """
-    # Use a fixed salt for consistency
-    salt = b'ps_spreadsheet_connector'
-    
-    # Derive key from secret key
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=100000,
-    )
-    
-    # Create URL-safe base64 encoded key
-    key = base64.urlsafe_b64encode(kdf.derive(settings.SECRET_KEY.encode()))
-    
-    return key
+    Validate the API key if it's configured
 
-
-def encrypt_data(data: Union[str, Dict[str, Any]]) -> str:
+    If no API key is configured in the settings, this is a no-op.
+    Otherwise, it checks that the request contains a valid API key.
     """
-    Encrypt sensitive data
-    
-    Args:
-        data: Data to encrypt (string or dict)
-        
-    Returns:
-        str: Encrypted data as string
-    """
-    # Convert dictionary to JSON string if needed
-    if isinstance(data, dict):
-        data = json.dumps(data)
-    
-    # Get encryption key
-    key = get_encryption_key()
-    fernet = Fernet(key)
-    
-    # Encrypt data
-    encrypted_data = fernet.encrypt(data.encode())
-    
-    return encrypted_data.decode()
-
-
-def decrypt_data(encrypted_data: str) -> Union[str, Dict[str, Any]]:
-    """
-    Decrypt sensitive data
-    
-    Args:
-        encrypted_data: Encrypted data as string
-        
-    Returns:
-        Union[str, Dict[str, Any]]: Decrypted data (string or dict)
-        
-    Raises:
-        ValueError: If decryption fails
-    """
-    try:
-        # Get encryption key
-        key = get_encryption_key()
-        fernet = Fernet(key)
-        
-        # Decrypt data
-        decrypted_data = fernet.decrypt(encrypted_data.encode()).decode()
-        
-        # Try to parse as JSON
-        try:
-            return json.loads(decrypted_data)
-        except json.JSONDecodeError:
-            # Return as string if not valid JSON
-            return decrypted_data
-            
-    except Exception as e:
-        raise ValueError(f"Failed to decrypt data: {str(e)}")
+    if settings.API_KEY and settings.API_KEY != "":
+        if api_key != settings.API_KEY:
+            raise HTTPException(
+                status_code=HTTP_403_FORBIDDEN, detail="Invalid API Key"
+            )
+    return api_key

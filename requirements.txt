@@ -1,19 +1,8 @@
-fastapi>=0.95.0
-uvicorn>=0.22.0
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
-sqlalchemy>=2.0.0
-pandas>=2.0.0
+asyncpg
+databases>=0.8.0
+fastapi>=0.103.1
+pydantic-settings>=2.0.3
+pydantic>=2.4.2
 python-dotenv>=1.0.0
-google-auth>=2.0.0
-google-api-python-client>=2.0.0
-cryptography>=40.0.0
-psycopg2-binary>=2.9.0  # PostgreSQL driver
-pymysql>=1.0.0  # MySQL driver
-
-# Optional drivers - uncomment as needed
-# pymongo>=4.0.0  # MongoDB driver
-# elasticsearch>=8.0.0  # Elasticsearch driver
-# redis>=4.0.0  # Redis driver
-# boto3>=1.0.0  # AWS S3 driver
-# snowflake-connector-python>=3.0.0  # Snowflake driver
+sqlalchemy>=2.0.21
+uvicorn>=0.23.2
