@@ -1,9 +1,5 @@
-import asyncio
-import importlib
 import logging
-from typing import Any, Dict, List, Optional
-
-from app.utils.encryption import decrypt_data
+from typing import Any, Dict
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -509,7 +505,7 @@ class ConnectorManager:
                     "success": False,
                     "message": "Spreadsheet ID is required for metadata retrieval"
                 }
-
+            sheet = service.spreadsheets()
             # Get the spreadsheet metadata
             spreadsheet = service.spreadsheets().get(
                 spreadsheetId=config["spreadsheet_id"]

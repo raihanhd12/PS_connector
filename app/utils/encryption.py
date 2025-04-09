@@ -1,17 +1,20 @@
 import base64
-import json
 
 from cryptography.fernet import Fernet
+from dotenv import dotenv_values
 
-from app.config import settings
+# Membaca isi file .env
+config = dotenv_values(".env")
 
+SECRET_KEY = config.get("SECRET_KEY", "")
+ENCRYPT_CONFIG = config.get("ENCRYPT_CONFIG", "false").lower() == "true"
 
 def get_encryption_key():
     """
     Get or generate an encryption key based on the SECRET_KEY
     """
     # Use the first 32 bytes of SECRET_KEY (padded if necessary)
-    key_data = settings.SECRET_KEY.encode().ljust(32, b'\0')[:32]
+    key_data = SECRET_KEY.encode().ljust(32, b'\0')[:32]
     # Convert to Fernet compatible key (URL-safe base64-encoded 32-byte key)
     fernet_key = base64.urlsafe_b64encode(key_data)
     return fernet_key
@@ -27,7 +30,7 @@ def encrypt_data(data):
     Returns:
         dict: Dictionary with encrypted sensitive fields
     """
-    if not settings.ENCRYPT_CONFIG:
+    if not ENCRYPT_CONFIG:
         return data
 
     # Create a copy of the data
@@ -60,7 +63,7 @@ def decrypt_data(data):
     Returns:
         dict: Dictionary with decrypted sensitive fields
     """
-    if not settings.ENCRYPT_CONFIG:
+    if not ENCRYPT_CONFIG:
         return data
 
     # Create a copy of the data

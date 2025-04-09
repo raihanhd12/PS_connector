@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from sqlalchemy import delete, insert, select, update
 
@@ -121,6 +121,6 @@ class ConnectorRepository:
     @staticmethod
     async def delete(connector_id: str) -> bool:
         """Delete a connector"""
-        query = delete(connectors).where(connectors.c.id == connector_id)
-        result = await database.execute(query)
-        return result > 0
+        query = delete(connectors).where(connectors.c.id == connector_id).returning(connectors.c.id)
+        result = await database.fetch_one(query)
+        return result is not None

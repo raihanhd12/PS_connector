@@ -1,11 +1,23 @@
+import sys
+
 import databases
 import sqlalchemy
+from dotenv import dotenv_values
 from sqlalchemy import MetaData
 
-from app.config import settings
+config = dotenv_values(".env")
+
+DATABASE_URL = config.get("DATABASE_URL", "")
 
 # Database instance
-database = databases.Database(settings.DATABASE_URL)
+try:
+    database = databases.Database(DATABASE_URL)
+    print("Database instance created successfully")
+except Exception as e:
+    print(f"Error creating database instance: {e}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
 
 # SQLAlchemy MetaData object
 metadata = MetaData()
@@ -27,8 +39,8 @@ connectors = sqlalchemy.Table(
 
 # Create engine
 engine = sqlalchemy.create_engine(
-    settings.DATABASE_URL, connect_args={"check_same_thread": False}
-    if settings.DATABASE_URL.startswith("sqlite") else {}
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if DATABASE_URL and DATABASE_URL.startswith("sqlite") else {}
 )
 
 async def init_db():
