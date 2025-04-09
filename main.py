@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.api.connector_routes import router as connector_router
 from app.config import settings
-from app.storage.database import init_db, close_db
+from app.storage.database import close_db, init_db
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -15,7 +16,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

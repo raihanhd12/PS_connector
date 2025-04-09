@@ -1,7 +1,9 @@
-from typing import Dict, Any, Optional
-from datetime import datetime
-from pydantic import BaseModel, Field, model_validator
 import uuid
+from datetime import datetime
+from typing import Any, Dict, Optional
+
+from pydantic import BaseModel, Field, model_validator
+
 
 class ConnectorBase(BaseModel):
     """Base model for connector information"""

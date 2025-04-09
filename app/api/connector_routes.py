@@ -1,11 +1,12 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from app.connectors.manager import ConnectorManager
 from app.models.connector import Connector, ConnectorCreate, ConnectorUpdate
 from app.storage.repository import ConnectorRepository
-from app.utils.validator import validate_connector_config
 from app.utils.security import validate_api_key
-from app.connectors.manager import ConnectorManager
+from app.utils.validator import validate_connector_config
 
 router = APIRouter(tags=["connectors"], dependencies=[Depends(validate_api_key)])
 

@@ -1,7 +1,7 @@
-import importlib
-from typing import Dict, Any, Optional, List
 import asyncio
+import importlib
 import logging
+from typing import Any, Dict, List, Optional
 
 from app.utils.encryption import decrypt_data
 
@@ -249,8 +249,8 @@ class ConnectorManager:
         """Test Google Sheets connection"""
         try:
             # Check if the required package is installed
-            from googleapiclient.discovery import build
             from google.oauth2.credentials import Credentials
+            from googleapiclient.discovery import build
         except ImportError:
             return {
                 "success": False,
@@ -483,8 +483,8 @@ class ConnectorManager:
     async def _get_googlesheets_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
         """Get Google Sheets metadata"""
         try:
-            from googleapiclient.discovery import build
             from google.oauth2.credentials import Credentials
+            from googleapiclient.discovery import build
         except ImportError:
             return {
                 "success": False,
@@ -563,9 +563,9 @@ class ConnectorManager:
         """Test Google Sheets connection"""
         try:
             # Check if the required packages are installed
-            from googleapiclient.discovery import build
-            from google.oauth2.credentials import Credentials
             from google.oauth2 import service_account
+            from google.oauth2.credentials import Credentials
+            from googleapiclient.discovery import build
         except ImportError:
             return {
                 "success": False,
@@ -628,9 +628,9 @@ class ConnectorManager:
     async def _get_googlesheets_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
         """Get Google Sheets metadata"""
         try:
-            from googleapiclient.discovery import build
-            from google.oauth2.credentials import Credentials
             from google.oauth2 import service_account
+            from google.oauth2.credentials import Credentials
+            from googleapiclient.discovery import build
         except ImportError:
             return {
                 "success": False,

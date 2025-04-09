@@ -1,14 +1,10 @@
-from typing import Dict, Any, Optional
-from pydantic import ValidationError
-from fastapi import HTTPException
+from typing import Any, Dict, Optional
 
-from app.models.connector import (
-    MySQLConfig,
-    PostgreSQLConfig,
-    MongoDBConfig,
-    RedisConfig,
-    GoogleSheetsConfig,
-)
+from fastapi import HTTPException
+from pydantic import ValidationError
+
+from app.models.connector import (GoogleSheetsConfig, MongoDBConfig,
+                                  MySQLConfig, PostgreSQLConfig, RedisConfig)
 
 # Map connector types to their config models
 CONFIG_VALIDATORS = {

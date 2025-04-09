@@ -15,6 +15,7 @@
 # Security
 # Uncomment as needed for your specific connectors
 aiomysql
+aiosqlite
 asyncpg>=0.27.0
 cryptography>=41.0.0
 databases>=0.8.0
@@ -22,6 +23,7 @@ fastapi>=0.103.1
 google-api-python-client>=2.100.0
 google-auth-httplib2>=0.1.0
 google-auth-oauthlib>=1.1.0
+psycopg2
 pydantic-settings>=2.0.3
 pydantic>=2.4.2
 python-dotenv>=1.0.0

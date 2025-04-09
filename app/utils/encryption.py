@@ -1,7 +1,9 @@
-from cryptography.fernet import Fernet
-from app.config import settings
-import json
 import base64
+import json
+
+from cryptography.fernet import Fernet
+
+from app.config import settings
 
 
 def get_encryption_key():
