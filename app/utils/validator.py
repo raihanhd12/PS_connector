@@ -17,20 +17,7 @@ CONFIG_VALIDATORS = {
 }
 
 def validate_connector_config(connector_type: str, config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Validates that the provided config matches the expected schema for the connector type.
 
-    Args:
-        connector_type: Type of connector (mysql, postgresql, etc.)
-        config: Configuration dictionary to validate
-
-    Returns:
-        The validated config dict (may have default values added)
-
-    Raises:
-        HTTPException: If the config fails validation
-    """
-    # Get validator for this connector type
     validator = CONFIG_VALIDATORS.get(connector_type.lower())
 
     if not validator:
